@@ -1,0 +1,32 @@
+---
+- name: "Populate service facts"
+  service_facts:
+
+- name: "Stop containerd service"
+  ansible.builtin.systemd:
+    name: containerd
+    state: stopped
+    daemon_reload: no
+    enabled: false
+  when: "'containerd' in services"
+
+- name: "Remove directories and files"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/containerd
+    - /etc/systemd/system/containerd.service
+    - /etc/crictl.yaml 
+
+- name: "Remove binaries"
+  ansible.builtin.file:
+    path: "{{ containerd_install_directory }}/{{ item }}"
+    state: absent
+  with_items:
+    - containerd
+    - containerd-shim
+    - containerd-shim-runc-v1  
+    - containerd-shim-runc-v2  
+    - containerd-stress  
+    - ctr

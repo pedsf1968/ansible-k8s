@@ -1,0 +1,46 @@
+---
+# tasks file for other controlplane to join first one
+
+#################################################################### COPY CERTS
+- name: "Copy Kubernetes controlplane PKI files"
+  copy: 
+    src: "/tmp/{{ k8s_first_controlplane }}/pki"
+    dest: /etc/kubernetes/
+    owner: root
+    group: root
+  when: inventory_hostname != k8s_first_controlplane
+
+- name: "Generate kubelet configuration"
+  ansible.builtin.template:
+    src: 10-kubeadm.conf.j2
+    dest: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+
+- name: "Stop kubelet service"
+  ansible.builtin.systemd:
+    name: kubelet
+    state: stopped
+    daemon_reload: no
+  when: inventory_hostname != k8s_first_controlplane
+
+############################################################## GET JOIN COMMAND
+- name: "Generate join token"
+  shell: kubeadm token create --print-join-command
+  register: kubeadm_join_cmd
+  delegate_to: "{{ k8s_first_controlplane }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: inventory_hostname != k8s_first_controlplane
+
+- set_fact:
+    kubeadm_join: "{{ kubeadm_join_cmd.stdout }} --control-plane --ignore-preflight-errors=all"
+  when: inventory_hostname != k8s_first_controlplane
+
+
+################################################################## JOIN CLUSTER
+- name: "Join Master replicas to cluster"
+  shell: "{{ kubeadm_join }}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: inventory_hostname != k8s_first_controlplane
+
+

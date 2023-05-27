@@ -1,0 +1,114 @@
+# k8s install with external ETCD and TLS
+# 
+# 5 ETCD
+# 2 LB with VIP for ETCD Client
+# 5 Controlplanes
+# 5 Workers
+# 2 LB with VIP for Kubernetes API
+
+########################################################################## INIT
+- name: "Get IP from nodes"
+  hosts: ["admin","sub-ca","api_lb_physical","k8s_controlplanes","k8s_workers"]
+  become: yes
+  gather_facts: true
+  roles:
+    #- role: "system/nala/nala-update"
+    #- role: "system/nala/nala-upgrade"
+
+###################################################################### HA-PROXY
+- name: "Load balancer installation"
+  hosts: ["api_lb_physical"]
+  become: yes
+  gather_facts: false
+  roles:
+    #- role: "haproxy/haproxy-install"
+    #- role: "keepalived/keepalived-install"
+
+
+######################################################## CREATE KUBERNETES USER
+- name: "Create kubernetes user for all nodes"
+  hosts: ["k8s_controlplanes","k8s_workers"]
+  become: yes
+  gather_facts: false
+  vars:
+    create_group_name: "{{ k8s_user_group }}"
+    create_group_gid: "{{ k8s_user_gid }}"
+    create_group_system: true
+    create_user_name: "{{ k8s_user_name }}"
+    create_user_uid: "{{ k8s_user_uid }}"
+    create_user_comment: "{{ k8s_user_comment }}"
+    create_user_shell: "/sbin/nologin"
+    create_user_system: true
+  roles:
+#    - role: "user/group-create"
+#    - role: "user/user-create"
+
+
+####################################################### ETCD CLIENT CERTIFICATE
+- name: "Create client PKI for {{ k8s_controlplanes }} members"
+  hosts: ["sub-ca"]
+  become: yes
+  gather_facts: false
+  vars:
+    cfssl_hosts: "{{ groups['k8s_controlplanes'] }}"
+    cfssl_certificate_names: ["client"]
+    cfssl_certificate_type: "client"
+  roles:
+    #- role: "system/cfssl/cfssl-create-certs"
+    - role: "system/cfssl/cfssl-pull-certs"
+
+################################################################ LAUNCH INSTALL
+- name: "Initialise all nodes"
+  hosts: ["k8s_controlplanes","k8s_workers"]
+  become: yes
+  gather_facts: yes
+  vars:
+    modprobe_modules: ["overlay","br_netfilter"]
+    sysctl_parameters: ["net.bridge.bridge-nf-call-iptables","net.bridge.bridge-nf-call-ip6tables","net.ipv4.ip_forward"]
+    cfssl_certificate_names: ["client" ]
+    cfssl_remote_directory: "/etc/kubernetes/pki"
+    cfssl_remote_owner: "{{ k8s_user_name }}"
+    cfssl_remote_group: "{{ k8s_user_group }}"
+  roles:
+    #- role: "system/swap-off"
+    #- role: "system/modprobe/modprobe-add-modules"
+    #- role: "system/sysctl/sysctl-add-parameters"
+    - role: "k8s/k8s-containerd-install"
+    - role: "k8s/k8s-packages-install"
+
+- name: "Initialise controlplane"
+  hosts: ["k8s-cp-01"]
+  become: yes
+  gather_facts: false
+  vars:
+    cfssl_certificate_names: ["client" ]
+    cfssl_remote_directory: "/etc/kubernetes/pki/etcd"
+    cfssl_remote_owner: "{{ k8s_user_name }}"
+    cfssl_remote_group: "{{ k8s_user_group }}"
+  roles:
+    - role: "system/cfssl/cfssl-push-certs"
+    - role:  "k8s/k8s-controlplane-init"
+    - role: "k8s/k8s-calico-install"
+    - role:  "k8s/k8s-controlplane-fetch-certs"
+
+- name: "Add other controlplanes"
+  hosts: ['k8s_controlplanes:!k8s-cp-01']
+  become: yes
+  gather_facts: false
+  vars:
+    cfssl_certificate_names: ["client" ]
+    cfssl_remote_directory: "/etc/kubernetes/pki/etcd"
+    cfssl_remote_owner: "{{ k8s_user_name }}"
+    cfssl_remote_group: "{{ k8s_user_group }}"
+  roles:
+    - role: "system/cfssl/cfssl-push-certs"
+    - role:  "k8s/k8s-controlplane-join"
+
+- name: "Add workers"
+  hosts: ['k8s_workers']
+  become: yes
+  gather_facts: false
+  roles:
+    - role:  "k8s/k8s-worker-join"
+
+  

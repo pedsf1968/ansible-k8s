@@ -1,0 +1,32 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+nodeRegistration:
+  name: "{{ k8s_first_controlplane}}"
+  criSocket: "unix:///var/run/containerd/containerd.sock"
+localAPIEndPoint:
+  advertiseAddress: "{{ k8s_first_controlplane }}"
+  bindPort: "{{ kubernetes_api_port }}"
+
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: "v{{ k8s_version }}"
+clusterName: "{{ k8s_cluster_label }}"
+controlPlaneEndpoint: "{{ k8s_api_hostname }}:{{ k8s_api_port }}"
+networking:
+  podSubnet: "{{ k8s_pod_subnet }}"
+  serviceSubnet: "{{ k8s_service_subnet }}"
+etcd:
+    external:
+        caFile: /etc/kubernetes/pki/etcd/sub-ca.pem
+        certFile: /etc/kubernetes/pki/etcd/client.pem
+        keyFile: /etc/kubernetes/pki/etcd/client-key.pem
+        endpoints:
+        - "https://{{ k8s_etcd_hostname }}:{{ k8s_etcd_port }}"
+        - "https://{{ k8s_etcd_ip }}:{{ k8s_etcd_port }}"
+
+---
+kind: KubeletConfiguration
+apiVersion: kubelet.config.k8s.io/v1beta1
+cgroupDriver: systemd

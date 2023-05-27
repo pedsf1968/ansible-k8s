@@ -1,0 +1,10 @@
+---
+# vars file for k8s-packages-install
+# choose either URL
+k8s_repository_gpg_key: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+k8s_repository: https://apt.kubernetes.io/ 
+k8s_os_version: kubernetes-xenial
+k8s_apt_key: /etc/apt/keyrings/k8s-ap-key.gpg
+
+k8s_install_directory: /usr/local/src
+

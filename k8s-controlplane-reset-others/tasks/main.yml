@@ -1,0 +1,12 @@
+---
+# tasks file to reset others controlplanes
+
+- name: "Reset kubeadm if present"
+  ansible.builtin.stat:
+    path: /usr/bin/kubeadm
+  register: response
+  when: inventory_hostname != k8s_first_controlplane
+
+- ansible.builtin.shell: kubeadm reset -f
+  when: inventory_hostname != k8s_first_controlplane and response.stat.exists
+  

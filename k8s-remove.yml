@@ -1,0 +1,26 @@
+# k8s remove installation
+
+
+################################################################# REMOVE INSTALL
+- name: "Copy nodes certificates and install ETCD"
+  hosts: ["k8s_controlplanes","k8s_workers"]
+  become: yes
+  gather_facts: yes
+  vars:
+    modprobe_modules: ["overlay","br_netfilter"]
+    sysctl_parameters: ["net.bridge.bridge-nf-call-iptables","net.bridge.bridge-nf-call-ip6tables","net.ipv4.ip_forward"]
+    cfssl_certificate_names: ["client" ]
+    cfssl_remote_directory: "/etc/kubernetes/pki"
+    cfssl_remote_owner: "{{ k8s_user_name }}"
+    cfssl_remote_group: "{{ k8s_user_group }}"
+  roles:
+    #TODO- role: "system/swap-on"
+    #- role: "system/modprobe/modprobe-remove-modules"
+    #- role: "system/sysctl/sysctl-remove-parameters"
+    - role: "k8s/k8s-controlplane-reset-first"
+    - role: "k8s/k8s-controlplane-reset-others"
+    - role: "k8s/k8s-containerd-remove"
+    - role: "system/cfssl/cfssl-remove-certs"
+    - role: "k8s/k8s-packages-remove"
+
+  

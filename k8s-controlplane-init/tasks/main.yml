@@ -1,0 +1,48 @@
+---
+# tasks file for k8s first controplane initialisation
+- name: "Ensure directory is present"
+  ansible.builtin.file:
+    path: /etc/kubernetes/
+    state: directory
+
+- name: "Generate kubeadm configuration"
+  ansible.builtin.template:
+    src: kubeadm-config.yml.j2
+    dest: /etc/kubernetes/kubeadm-config.yml
+
+- name: "Stop kubelet"
+  ansible.builtin.systemd:
+    name: kubelet
+    state: stopped
+
+- name: "Generate kubelet configuration"
+  ansible.builtin.template:
+    src: 10-kubeadm.conf.j2
+    dest: /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+
+################################################################### MASTER INIT
+- name: "Initialise first controlplane"
+  ansible.builtin.command: 
+    cmd: kubeadm init --config=/etc/kubernetes/kubeadm-config.yml --upload-certs
+  register: result
+  ignore_errors: yes
+
+- ansible.builtin.copy:
+    content: "{{ result.stdout }}"
+    dest: "/etc/kubernetes/kubeadm-init.stdout"
+
+- name: "Configure kubectl"
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+
+- ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf 
+    dest: /root/.kube/config
+    remote_src: yes
+
+#- name: "Fetching Kubernetes admin configuration file for admin"
+#  fetch:
+#    src: /etc/kubernetes/admin.conf
+#    dest: "/tmp/{{ inventory_hostname }}/admin.conf"
+#    flat: yes

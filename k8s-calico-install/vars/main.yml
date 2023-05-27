@@ -1,0 +1,5 @@
+
+calico_version: 3.25.1
+calico_manifest: "https://raw.githubusercontent.com/projectcalico/calico/v{{ calico_version }}/manifests/calico.yaml"
+
+

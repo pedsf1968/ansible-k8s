@@ -1,0 +1,59 @@
+---
+# tasks file to remove k8s packages
+- name: "Populate service facts"
+  service_facts:
+
+- name: "Stop kubelet service"
+  ansible.builtin.systemd:
+    name: kubelet
+    state: stopped
+    daemon_reload: no
+    enabled: false
+  when: "'kubelet' in services"
+
+- name: "Unhold kubeadm, kubelet"
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  with_items: ['kubelet', 'kubeadm' ]
+
+- name: "Remove Kubernetes packages for nodes"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: absent
+  with_items: ['kubelet', 'kubeadm' ]
+
+- name: "Unhold kubectl"
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  with_items: ['kubectl']
+  when: inventory_hostname in groups['k8s_controlplanes']
+
+- name: "Remove kubectl package for controlplane"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: absent
+  with_items: ['kubectl']
+  when: inventory_hostname in groups['k8s_controlplanes']
+
+- name: "Remove Kubernetes GPG apt key"
+  ansible.builtin.apt_key:
+    url: "{{ k8s_repository_gpg_key }}"
+    keyring: "{{ k8s_apt_key }}"
+    state: absent
+
+- name: "Remove Kubernetes repository"
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ k8s_apt_key}}] {{ k8s_repository }} {{ k8s_os_version }} main"
+    state: absent
+    filename: kubernetes
+    update_cache: yes
+
+- name: "Remove directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/kubernetes
+    - /etc/systemd/system/kubelet.service.d

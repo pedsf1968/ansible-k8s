@@ -1,0 +1,15 @@
+---
+# tasks file to fech certs of the first controplane
+
+- name: "Fetching Kubernetes first controlplane PKI files for other nodes"
+  fetch:
+    src: "/etc/kubernetes/pki/{{ item }}"
+    dest: "/tmp/{{ inventory_hostname }}/pki/{{ item }}"
+    flat: yes
+  with_items:
+    - ca.crt
+    - ca.key
+    - sa.pub
+    - sa.key
+    - front-proxy-ca.crt
+    - front-proxy-ca.key

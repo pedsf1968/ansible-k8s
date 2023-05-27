@@ -1,0 +1,58 @@
+---
+# Install Containerd 
+
+- name: "Add Docker GPG repository key"
+  ansible.builtin.apt_key:
+    url: "{{ containerd_docker_gpg_url }}"
+    keyring: "{{ containerd_docker_gpg_key }}"
+    state: present
+
+- name: "Add Docker repository"
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=amd64] {{ containerd_docker_repository }} {{ containerd_docker_release }} stable"
+    state: present
+    filename: kubernetes
+    update_cache: yes
+
+- name: "Install Kubernetes packages for nodes"
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    allow_downgrade: yes
+  with_items: 
+    - "containerd.io"
+
+- name: "Create directories"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - /etc/containerd
+
+- name: "Create Containerd config file"
+  ansible.builtin.file:
+    path: /etc/containerd/config.toml
+    state: touch
+
+- ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+
+- name: "Configuring the systemd as cgroup driver"
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: '(.*)(SystemdCgroup = false)$'
+    replace: '            SystemdCgroup = true'
+
+- name: "Configure CRIctl"
+  template:
+    src: crictl.yaml.j2
+    dest: /etc/crictl.yaml
+
+- name: "Restart service containerd"
+  ansible.builtin.systemd:
+    name: containerd
+    state: restarted
+    daemon_reload: yes
+    enabled: true
+
+  
+

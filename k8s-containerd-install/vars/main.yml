@@ -1,0 +1,5 @@
+# vars file for k8s-containerd-install
+containerd_docker_gpg_url: https://download.docker.com/linux/ubuntu/gpg
+containerd_docker_gpg_key: /etc/apt/trusted.gpg.d/docker.gpg
+containerd_docker_repository: https://download.docker.com/linux/ubuntu
+containerd_docker_release: jammy

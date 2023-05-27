@@ -1,0 +1,51 @@
+---
+# tasks file for k8s-packages-install
+- name: "Add Kubernetes GPG apt key"
+  ansible.builtin.apt_key:
+    url: "{{ k8s_repository_gpg_key }}"
+    keyring: "{{ k8s_apt_key }}"
+    state: present
+
+- name: "Add Kubernetes repository"
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ k8s_apt_key}}] {{ k8s_repository }} {{ k8s_os_version }} main"
+    state: present
+    filename: kubernetes
+    update_cache: yes
+
+- name: "Install Kubernetes packages for nodes"
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    allow_downgrade: yes
+  with_items: 
+    - "kubeadm={{ k8s_version }}-00"
+    - "kubelet={{ k8s_version }}-00"
+
+- name: "Enable kubelet"
+  ansible.builtin.systemd:
+    name: kubelet
+    state: started
+    enabled: true
+
+- name: "Hold kubeadm, kubelet"
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items: ['kubelet', 'kubeadm' ]
+
+- name: "Install kubectl package for masters"
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    allow_downgrade: yes
+  with_items: 
+    - "kubectl={{ k8s_version }}-00"
+  when: inventory_hostname in groups['k8s_controlplanes']
+
+- name: "Hold kubectl"
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items: ['kubectl']
+  when: inventory_hostname in groups['k8s_controlplanes']
